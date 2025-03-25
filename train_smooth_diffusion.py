@@ -45,13 +45,13 @@ from transformers import CLIPTextModel, CLIPTokenizer
 import diffusers
 from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, UNet2DConditionModel
 from diffusers.loaders import AttnProcsLayers
-from diffusers.models.attention_processor import LoRAAttnProcessor
+# from diffusers.models.attention_processor import LoRAAttnProcessor
 from diffusers.optimization import get_scheduler
 from diffusers.utils import check_min_version, is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
 from torch import nn, autograd, optim
 
-
+from diffusers.models.attention_processor import LoRAAttnProcessor, LoRAAttnProcessor2_0
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.18.0.dev0")
 
@@ -412,18 +412,32 @@ def main():
     # => 32 layers
 
     # Set correct lora layers
-# Set correct lora layers
+
+    # Set up LoRA attention processors
     lora_attn_procs = {}
     for name in unet.attn_processors.keys():
-        cross_attention_dim = None if name.endswith("attn1.processor") else unet.config.cross_attention_dim
+        # Determine if it's cross-attention
+        is_cross_attention = not name.endswith("attn1.processor")
         
-        # Remove the hidden_size calculation completely
+        # Use the new simplified LoRAAttnProcessor
         lora_attn_procs[name] = LoRAAttnProcessor(
-            cross_attention_dim=cross_attention_dim,
-            rank=args.rank,  # Typically 4 or 8
+            hidden_size=None,  # No longer used but kept for backward compatibility
+            rank=args.rank,    # Typically 4, 8, or 16
         )
 
     unet.set_attn_processor(lora_attn_procs)
+# Set correct lora layers
+    # lora_attn_procs = {}
+    # for name in unet.attn_processors.keys():
+    #     cross_attention_dim = None if name.endswith("attn1.processor") else unet.config.cross_attention_dim
+        
+    #     # Remove the hidden_size calculation completely
+    #     lora_attn_procs[name] = LoRAAttnProcessor(
+    #         cross_attention_dim=cross_attention_dim,
+    #         rank=args.rank,  # Typically 4 or 8
+    #     )
+
+    # unet.set_attn_processor(lora_attn_procs)
 
     # lora_attn_procs = {}
     # for name in unet.attn_processors.keys():
